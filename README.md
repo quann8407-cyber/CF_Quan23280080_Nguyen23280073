@@ -36,6 +36,13 @@ Cách chạy
 3. Chạy backtest_pair_safe_fixed_shift để xem kết quả equity, PNL
 4. Chạy optimize.py để tìm bộ tham số tối ưu
 
+Kết quả
+- Cặp được chọn là BID.VN và VCB.VN
+- Kết quả back test
+   Total trades executed: 414
+   Final equity: 104,516,510 VND
+   Net P/L: 4,516,510 VND
+  
 Ghi chú
 - Chiến lược market-neutral nhưng hiệu quả phụ thuộc vào biến động spread
 - Volatility filter giúp tránh trade trong thị trường quá yên tĩnh
