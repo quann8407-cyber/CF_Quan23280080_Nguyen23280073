@@ -64,7 +64,7 @@ import pandas as pd
 df_signal = pd.json_normalize(results)
 df_signal['position'] = df_signal['signal'] * df_signal['position_multiplier']
 
-###4.3 Chạy Backtest
+#4.3 Chạy Backtest
 from execution.backtest import SpreadBacktest
 
 backtester = SpreadBacktest(cost_per_turnover=0.0005, slippage=0.0001, output_path="results/backtest.csv")
