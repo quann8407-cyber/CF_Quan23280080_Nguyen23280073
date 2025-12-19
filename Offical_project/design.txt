@@ -1,0 +1,46 @@
+project_root/
+	data/
+		data_loader.py
+	utility/
+		stat_test.py
+			classs StatTests:
+				corr(x: pd.Series, y: pd.Series, method="pearson") -> float:
+				adf_test(series: pd.Series) -> dict:
+				cointegration_test(x: pd.Series, y: pd.Series) -> dict:
+		time_series.py
+			class TimeSeriesStats:
+				half_life(spread: pd.Series) -> float:
+				hurst_exponent(series: pd.Series, max_lag=20) -> float:
+				variance_ratio(series: pd.Series, lag=2) -> float:
+
+	diagnostics/
+		spread_score.py
+			class SpreadScore:
+				half_life_score(hl: float,
+		  	                      hl_min=5,
+ 		 	                      hl_max=60) -> float:
+				raw_score(x, y, spread) -> dict:
+		spread_stability.py
+			class SpreadStability:
+				rolling_adf(spread, window=90, step=5):
+				rolling_coint(x, y, window=180, step=10):
+				rolling_half_life(spread, window=60, hl_min=2, hl_max=80):
+				rolling_hurst(spread, window=100, threshold=0.5):
+				stab_score(x, y, spread) -> dict:
+			class SpreadGate:
+				is_tradable(adf_p, half_life, hurst, stab_score,
+                    			hl_min=5, hl_max=120) -> bool:
+	regime/
+		classifier.py
+			class RegimeConfig:
+				
+			class RegimeClassifier:
+				__init__(self, config):
+				evaluate(self, t, x, y, spread):
+				position_multiplier(cls, regime: str) -> float:
+				_structural_score(coint_p, adf_p):
+				_mr_score(hl, hurst, vr):
+				_shock_score(spread):
+				
+				
+

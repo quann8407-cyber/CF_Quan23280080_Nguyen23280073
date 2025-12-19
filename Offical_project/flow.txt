@@ -1,0 +1,19 @@
+DataLoader
+   ↓
+KalmanBeta  → beta_t
+   ↓
+SpreadBuilder → spread_t
+   ↓
+ZScore → z_t
+   ↓
+Diagnostics (raw_score, stab_score)
+   ↓
+RegimeClassifier → regime_t
+   ↓
+position_multiplier(regime, z)
+   ↓
+Backtest / Execution
+   ↓
+CSV (per t)
+   ↓
+Performance metrics (daily)
