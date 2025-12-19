@@ -1,50 +1,133 @@
-# Pair Trading Backtest và Optimization cho Cổ phiếu VN
+# Pair-Trading Strategy Project
 
-Mục tiêu của dự án:
-- Xây dựng chiến lược pair trading market-neutral cho các cặp cổ phiếu VN.
-- Sử dụng spread, z-score và volatility filter để ra quyết định mua/bán.
-- Backtest chiến lược trong quá khứ và tối ưu tham số (window, entry_z, exit_z).
-- 
-Dữ liệu sử dụng:
-- Giá đóng cửa hàng ngày của các cổ phiếu: BID.VN, VCB.VN, CTG.VN, MBB.VN,...
-- Thời gian: 8 năm trước để tối ưu tham số, 2 năm gần đây để backtest.
-- Các cột: close price, spread, beta, z-score, spread volatility.
+## 1. Giới thiệu
+Dự án này là framework **pair-trading** với khả năng:
 
-Chiến lược pair trading:
-1. Tính spread giữa 2 cổ phiếu: spread = price1 - beta * price2
-2. Tính z-score của spread dựa trên rolling window
-3. Entry signal:
-   - z-score > entry_z → short spread (bán stock1, mua stock2)
-   - z-score < -entry_z → long spread (mua stock1, bán stock2)
-   - Chỉ trade khi spread volatility > vol_lower (tránh thị trường quá yên tĩnh)
-4. Exit signal:
-   - Sử dụng z-score
-5. Quản lý rủi ro:
-   - Max % vốn per trade
-   - Stop-loss
-   - Transaction fees: buy_fee, sell_fee
+- Chọn cặp cổ phiếu/phái sinh có cointegration / correlation phù hợp.
+- Tính **regime** (NORMAL / DEGRADED / RESET) dựa trên các metric: ADF p-value, cointegration p-value, Hurst, half-life, correlation…
+- Sinh **signal z-score** với position multiplier tùy regime.
+- Thực hiện **backtest spread-based strategy** với turnover, cost, slippage.
+- Tính và xuất **rolling performance metrics** như equity, drawdown, Sharpe, volatility, exposure và regime-aware metrics.
 
-Cấu trúc
-  - pair_trading_signals.py: Tính beta, spread, z-score và tạo tín hiệu
-  - backtest_pair_safe_fixed_shift.py: Backtest chiến lược với quản lý vốn, stop-loss, volatility filter
-  - optimize.py: Tối ưu tham số (window, entry_z, exit_z) dựa trên PNL
-  - utils.py: Các hàm hỗ trợ
+---
 
-Cách chạy
-1. Chuẩn bị dữ liệu CSV hoặc DataFrame với cột close price
-2. Chạy pair_trading_signals để tạo signal
-3. Chạy backtest_pair_safe_fixed_shift để xem kết quả equity, PNL
-4. Chạy optimize.py để tìm bộ tham số tối ưu
+## 2. Cấu trúc thư mục
+pair_trading_project/
+│
+├── data/ # Thư mục dữ liệu (giá, spread, signals)
+├── execution/
+│ └── backtest.py # Backtest engine SpreadBacktest
+├── performance/
+│ └── rolling_metrics.py # Rolling / regime-aware performance metrics
+├── modules/
+│ ├── signal_engine.py # Tạo signal từ z-score / regime
+│ └── regime_classifier.py# Tính regime & position multiplier
+├── notebooks/ # Notebook demo / ví dụ chạy
+├── results/ # Output CSV: backtest, rolling metrics
+└── README.md
 
-Kết quả
-- Cặp được chọn là XOM và CVX, PEP và KO
-XOM và CVX
-<img width="559" height="413" alt="image" src="https://github.com/user-attachments/assets/6df37b87-7437-427e-9856-9ca5058f50d6" />
+
+---
+
+## 3. Cài đặt
+
+Python ≥ 3.10. Cài đặt các package cần thiết:
+
+bash
+pip install pandas numpy matplotlib
+##4. Hướng dẫn sử dụng
+###4.1 Chuẩn bị dữ liệu
+
+price_x, price_y: giá của 2 tài sản trong cặp.
+
+spread: difference hoặc log spread.
+
+df_signal: dataframe chứa signal, z-score và position_multiplier.
+
+###4.2 Tính Regime và Signal
+from modules.regime_classifier import RegimeClassifier
+from modules.signal_engine import SignalEngine
+
+regime_clf = RegimeClassifier(...)
+signal_engine = SignalEngine(...)
+
+# Walk-forward engine
+wf = WalkForwardEngine(
+    data={'x': price_x, 'y': price_y, 'spread': spread, 'dates': price_x.index, 'pair': 'KO_PEP'},
+    modules=[regime_clf, signal_engine]
+)
+
+results = wf.run()  # list of dict
+
+# Chuyển list dict → DataFrame df_signal
+import pandas as pd
+df_signal = pd.json_normalize(results)
+df_signal['position'] = df_signal['signal'] * df_signal['position_multiplier']
+
+###4.3 Chạy Backtest
+from execution.backtest import SpreadBacktest
+
+backtester = SpreadBacktest(cost_per_turnover=0.0005, slippage=0.0001, output_path="results/backtest.csv")
+
+for t in range(len(df_signal)):
+    signal_dict = {"position": df_signal.iloc[t]['position']}
+    backtester.step(t=t, spread=spread, ZScoreSignal=signal_dict)
+
+df_backtest = backtester.finalize(index=df_signal.index)
+
+
+Kết quả: df_backtest với position, pnl, equity, turnover, cost
+
+###4.4 Rolling Metrics & Visualization
+from performance.rolling_metrics import RollingPerformanceMetrics
+
+rolling = RollingPerformanceMetrics(
+    csv_path="results/backtest.csv",
+    output_path="results/rolling_metrics.csv",
+    freq=252
+)
+
+df_rolling = rolling.run(
+    sharpe_window=60,
+    vol_window=60,
+    turnover_window=20,
+    exposure_window=20,
+    regime_window=60
+)
+
+# Plot
+import matplotlib.pyplot as plt
+df_rolling['equity'].plot(title='Equity Curve')
+df_rolling['rolling_sharpe_60'].plot(title='Rolling Sharpe')
+plt.show()
+
+###5. Metrics có thể phân tích
+
+Equity curve & Drawdown
+
+Sharpe, Volatility (rolling hoặc toàn bộ)
+
+Turnover & Exposure
+
+Regime-aware metrics (% thời gian NORMAL regime)
+
+###6. Lưu ý
+
+Backtest sử dụng position multiplier từ regime
+
+Các chi phí giao dịch (cost_per_turnover, slippage) được tính trong SpreadBacktest.
+
+Rolling metrics hỗ trợ tùy window (60 ngày, 20 ngày…) để phân tích động.
+
+###7. Output
+
+results/backtest.csv → equity, pnl, position, turnover, cost
+
+results/rolling_metrics.csv → rolling Sharpe, vol, drawdown, exposure, pct_normal_regime
 
   
 Ghi chú
 - Chiến lược market-neutral nhưng hiệu quả phụ thuộc vào biến động spread
-- Volatility filter giúp tránh trade trong thị trường quá yên tĩnh
 - Phí giao dịch và slippage ảnh hưởng đáng kể tới PNL
 - Có thể mở rộng: multi-pair trading, cặp ngành khác, dynamic thresholds
 
